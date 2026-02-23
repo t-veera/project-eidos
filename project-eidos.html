@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Eidos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --renoir-1: #C08B82;
+    --renoir-2: #7A9E82;
+    --renoir-3: #B8956A;
+    --renoir-4: #8B9AAF;
+    --renoir-5: #A08BAF;
+    --renoir-6: #7A9BAF;
+    --renoir-7: #AF8A6E;
+    --renoir-8: #8DAF85;
+    --renoir-9: #B08A9A;
+  }
+
+  [data-theme="dark"] {
+    --bg: #18151200;
+    --bg-solid: #181512;
+    --surface: #221E1A;
+    --surface-2: #2C2722;
+    --border: #3A342E;
+    --text-primary: #EDE5DC;
+    --text-secondary: #9A9088;
+    --text-muted: #6A6058;
+    --bar-track: #2C2722;
+    --shadow: rgba(0,0,0,0.4);
+    --grain-opacity: 0.04;
+  }
+
+  [data-theme="light"] {
+    --bg: #F7F2EC00;
+    --bg-solid: #F7F2EC;
+    --surface: #EDE6DC;
+    --surface-2: #E4DDD2;
+    --border: #CFC8BE;
+    --text-primary: #2A2520;
+    --text-secondary: #6A6058;
+    --text-muted: #9A9088;
+    --bar-track: #D8D0C5;
+    --shadow: rgba(0,0,0,0.12);
+    --grain-opacity: 0.03;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+    background-color: var(--bg-solid);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 2.5rem 3rem;
+    position: relative;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  /* Grain texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    opacity: var(--grain-opacity);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 3rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-left h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 2.8rem;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .header-left p {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  /* Theme toggle */
+  .theme-toggle {
+    width: 52px;
+    height: 28px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.3s;
+  }
+
+  .theme-toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    transition: transform 0.3s ease, background 0.3s;
+  }
+
+  [data-theme="light"] .theme-toggle::after {
+    transform: translateX(24px);
+    background: var(--renoir-3);
+  }
+
+  .theme-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Add project button */
+  .btn-add {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: 'Jost', sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-add:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+    background: var(--surface);
+  }
+
+  .btn-add span { font-size: 1.1rem; line-height: 1; }
+
+  /* Projects list */
+  #projects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Project row */
+  .project-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    align-items: center;
+    gap: 2rem;
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    transition: opacity 0.2s;
+    cursor: default;
+  }
+
+  .project-row.drag-over {
+    border-top: 2px solid var(--renoir-3);
+  }
+
+  .project-row.dragging {
+    opacity: 0.4;
+  }
+
+  /* Project name section */
+  .project-name-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    cursor: grab;
+    user-select: none;
+    padding-right: 1rem;
+  }
+
+  .project-name-col:active { cursor: grabbing; }
+
+  .drag-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .drag-dots {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .project-row:hover .drag-dots { opacity: 1; }
+
+  .drag-dots span {
+    display: block;
+    width: 14px;
+    height: 1px;
+    background: var(--text-muted);
+  }
+
+  .proj-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+
+  .proj-goal {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  /* Bar section */
+  .bar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Bar track */
+  .bar-track {
+    position: relative;
+    height: 28px;
+    background: var(--bar-track);
+    border-radius: 4px;
+    overflow: visible;
+    cursor: pointer;
+  }
+
+  .bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    min-width: 4px;
+  }
+
+  /* Pulse animation on update */
+  @keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 currentColor; }
+    50% { box-shadow: 0 0 16px 4px currentColor; }
+    100% { box-shadow: 0 0 0 0 currentColor; }
+  }
+
+  .bar-fill.just-updated {
+    animation: pulse-glow 1.2s ease-out;
+  }
+
+  /* Milestone tip label */
+  .milestone-tip {
+    position: absolute;
+    top: -26px;
+    transform: translateX(-50%);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    pointer-events: none;
+    transition: left 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Percent label inside bar */
+  .bar-pct {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    pointer-events: none;
+    mix-blend-mode: normal;
+  }
+
+  /* Bar + goal wrapper */
+  .bar-with-goal {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .bar-with-goal .bar-track {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Goal marker */
+  .goal-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Progress meta line */
+  .bar-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .latest-milestone {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.03em;
+  }
+
+  .latest-milestone strong {
+    font-weight: 400;
+  }
+
+  .update-btn {
+    font-family: 'Jost', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+
+  .update-btn:hover {
+    color: var(--text-primary);
+    background: var(--surface);
+  }
+
+  /* Milestone history tooltip */
+  .history-tooltip {
+    position: absolute;
+    left: 202px;
+    top: calc(100% + 4px);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    z-index: 50;
+    min-width: 280px;
+    max-width: 400px;
+    box-shadow: 0 8px 24px var(--shadow);
+    display: none;
+  }
+
+  .project-row:hover .history-tooltip {
+    display: block;
+  }
+
+  .history-tooltip h4 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-item:last-child { border-bottom: none; }
+
+  .history-pct {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    min-width: 32px;
+  }
+
+  .history-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state p {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-weight: 300;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-state small {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 420px;
+    max-width: calc(100vw - 2rem);
+    box-shadow: 0 24px 60px var(--shadow);
+    transform: translateY(12px);
+    transition: transform 0.25s ease;
+  }
+
+  .modal-overlay.open .modal {
+    transform: translateY(0);
+  }
+
+  .modal h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6rem;
+    font-weight: 400;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  .form-group {
+    margin-bottom: 1.2rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: 'Jost', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus {
+    border-color: var(--text-secondary);
+  }
+
+  .form-group input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 1.8rem;
+    justify-content: flex-end;
+  }
+
+  .btn-cancel {
+    padding: 0.6rem 1.2rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: 'Jost', sans-serif;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-cancel:hover { color: var(--text-primary); }
+
+  .btn-confirm {
+    padding: 0.6rem 1.4rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: 'Jost', sans-serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-confirm:hover {
+    border-color: var(--text-secondary);
+    background: var(--border);
+  }
+
+  /* Delete btn */
+  .delete-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+    font-size: 0.9rem;
+    padding: 0.3rem;
+  }
+
+  .project-row:hover .delete-btn {
+    opacity: 0.6;
+  }
+
+  .delete-btn:hover {
+    color: #C08B82 !important;
+    opacity: 1 !important;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Project Eidos</h1>
+    <p>All projects at a glance</p>
+  </div>
+  <div class="header-actions">
+    <span class="theme-label" id="theme-label">Dark</span>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
+    <button class="btn-add" onclick="openAddModal()">
+      <span>+</span> New Project
+    </button>
+  </div>
+</header>
+
+<div id="projects-list"></div>
+
+<div id="empty-state" class="empty-state" style="display:none">
+  <p>No projects yet.</p>
+  <small>Add your first project above</small>
+</div>
+
+<!-- Add Project Modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <h2>New Project</h2>
+    <div class="form-group">
+      <label>Project Name</label>
+      <input type="text" id="new-name" placeholder="e.g. Botanical Illustrations" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Final Goal</label>
+      <input type="text" id="new-goal" placeholder="e.g. Publish 40-page zine" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-confirm" onclick="addProject()">Add Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- Update Project Modal -->
+<div class="modal-overlay" id="update-modal">
+  <div class="modal">
+    <h2 id="update-modal-title">Log Progress</h2>
+    <div class="form-group">
+      <label>What did you complete?</label>
+      <input type="text" id="update-label" placeholder="e.g. Received first draft of the deck" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>New progress % (0–100)</label>
+      <input type="number" id="update-pct" placeholder="e.g. 35" min="0" max="100" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-confirm" onclick="saveUpdate()">Log It</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── RENOIR PALETTE ──────────────────────────────────────────────────────────
+const COLORS_DARK = [
+  '#C08B82', '#7A9E82', '#B8956A', '#8B9AAF',
+  '#A08BAF', '#7A9BAF', '#AF8A6E', '#8DAF85', '#B08A9A',
+];
+// Same hues, significantly deeper for light bg
+const COLORS_LIGHT = [
+  '#8B4A40', '#3D6E48', '#8A5A28', '#3D5270',
+  '#60406E', '#2E5E70', '#7A4E2A', '#3D6E45', '#70405A',
+];
+
+function COLORS() {
+  return document.documentElement.getAttribute('data-theme') === 'light'
+    ? COLORS_LIGHT : COLORS_DARK;
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let projects = [];
+let currentUpdateId = null;
+let dragSrcIdx = null;
+
+function save() {
+  localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
+}
+
+function load() {
+  const raw = localStorage.getItem('project_eidos_v1');
+  if (raw) {
+    try { projects = JSON.parse(raw); } catch(e) { projects = []; }
+  }
+  // Legacy migration
+  const old = localStorage.getItem('project_eidos_legacy');
+  if (old && !raw) {
+    try { projects = JSON.parse(old); } catch(e) {}
+  }
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function pickColor(idx) {
+  return COLORS()[idx % COLORS().length];
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  const list = document.getElementById('projects-list');
+  const empty = document.getElementById('empty-state');
+  list.innerHTML = '';
+
+  if (projects.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  projects.forEach((p, idx) => {
+    const color = pickColor(idx);
+    const pct = p.progress || 0;
+    const milestones = p.milestones || [];
+    const latest = milestones[milestones.length - 1] || null;
+
+    const row = document.createElement('div');
+    row.className = 'project-row';
+    row.dataset.id = p.id;
+    row.dataset.idx = idx;
+
+    // Milestone history HTML
+    let historyHTML = '';
+    if (milestones.length > 0) {
+      historyHTML = `
+        <div class="history-tooltip">
+          <h4>Milestone History</h4>
+          ${milestones.map(m => `
+            <div class="history-item">
+              <span class="history-pct">${m.pct}%</span>
+              <span class="history-label">${escHtml(m.label)}</span>
+            </div>
+          `).join('')}
+        </div>`;
+    }
+
+    row.innerHTML = `
+      <div class="project-name-col" draggable="true">
+        <div class="drag-hint">
+          <div class="drag-dots"><span></span><span></span><span></span></div>
+          <span class="proj-name">${escHtml(p.name)}</span>
+        </div>
+      </div>
+      <div class="bar-col">
+        <div class="bar-with-goal">
+          <div class="bar-track">
+            <div class="bar-fill" id="fill-${p.id}"
+              style="width:${pct}%; background:${color};">
+              ${pct > 8 ? `<span class="bar-pct">${pct}%</span>` : ''}
+            </div>
+          </div>
+          <span class="goal-label">${escHtml(p.goal)}</span>
+        </div>
+        <div class="bar-meta">
+          <span class="latest-milestone">
+            ${latest
+              ? `<strong>${pct}%</strong> — ${escHtml(latest.label)}`
+              : '<span style="opacity:0.5">No progress logged yet</span>'}
+          </span>
+          <button class="update-btn" data-id="${p.id}">+ Log progress</button>
+        </div>
+      </div>
+      ${historyHTML}
+      <button class="delete-btn" data-id="${p.id}" title="Delete project">✕</button>
+    `;
+
+    // Drag events
+    const nameCol = row.querySelector('.project-name-col');
+    nameCol.addEventListener('dragstart', e => {
+      dragSrcIdx = idx;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    nameCol.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.project-row').forEach(r => r.classList.remove('drag-over'));
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      document.querySelectorAll('.project-row').forEach(r => r.classList.remove('drag-over'));
+      if (idx !== dragSrcIdx) row.classList.add('drag-over');
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrcIdx !== null && dragSrcIdx !== idx) {
+        const moved = projects.splice(dragSrcIdx, 1)[0];
+        projects.splice(idx, 0, moved);
+        save();
+        render();
+      }
+    });
+
+    // Update button
+    row.querySelector('.update-btn').addEventListener('click', () => {
+      openUpdateModal(p.id, p.name);
+    });
+
+    // Delete button
+    row.querySelector('.delete-btn').addEventListener('click', () => {
+      if (confirm(`Delete "${p.name}"? This cannot be undone.`)) {
+        projects = projects.filter(x => x.id !== p.id);
+        save();
+        render();
+      }
+    });
+
+    list.appendChild(row);
+  });
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── MODALS ──────────────────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-goal').value = '';
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 200);
+}
+
+function openUpdateModal(id, name) {
+  currentUpdateId = id;
+  const p = projects.find(x => x.id === id);
+  document.getElementById('update-modal-title').textContent = `Log — ${name}`;
+  document.getElementById('update-label').value = '';
+  document.getElementById('update-pct').value = p ? (p.progress || 0) : 0;
+  document.getElementById('update-modal').classList.add('open');
+  setTimeout(() => document.getElementById('update-label').focus(), 200);
+}
+
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+  currentUpdateId = null;
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function addProject() {
+  const name = document.getElementById('new-name').value.trim();
+  const goal = document.getElementById('new-goal').value.trim();
+  if (!name || !goal) {
+    alert('Please fill in both fields.');
+    return;
+  }
+  projects.push({ id: newId(), name, goal, progress: 0, milestones: [] });
+  save();
+  closeModals();
+  render();
+}
+
+function saveUpdate() {
+  const label = document.getElementById('update-label').value.trim();
+  const pctRaw = document.getElementById('update-pct').value;
+  const pct = Math.min(100, Math.max(0, parseInt(pctRaw) || 0));
+  if (!label) { alert('Please describe what you completed.'); return; }
+  if (pctRaw === '') { alert('Please enter a progress %.'); return; }
+
+  const p = projects.find(x => x.id === currentUpdateId);
+  if (!p) return;
+  p.progress = pct;
+  p.milestones = p.milestones || [];
+  p.milestones.push({ label, pct });
+  save();
+  closeModals();
+  render();
+
+  // Trigger pulse after render
+  requestAnimationFrame(() => {
+    const fill = document.getElementById(`fill-${p.id}`);
+    if (fill) {
+      fill.classList.remove('just-updated');
+      void fill.offsetWidth; // reflow
+      fill.classList.add('just-updated');
+      fill.style.color = pickColor(projects.indexOf(p));
+      setTimeout(() => fill.classList.remove('just-updated'), 1300);
+    }
+  });
+}
+
+// ─── THEME ───────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = isDark ? 'Light' : 'Dark';
+  localStorage.setItem('project_eidos_theme', isDark ? 'light' : 'dark');
+  render();
+}
+
+function loadTheme() {
+  const t = localStorage.getItem('project_eidos_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-label').textContent = t === 'dark' ? 'Dark' : 'Light';
+}
+
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModals();
+  if (e.key === 'Enter') {
+    if (document.getElementById('add-modal').classList.contains('open')) addProject();
+    else if (document.getElementById('update-modal').classList.contains('open')) saveUpdate();
+  }
+});
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeModals();
+  });
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+loadTheme();
+load();
+
+// Seed demo projects if empty
+if (projects.length === 0) {
+  projects = [
+    { id: newId(), name: 'Project Alpha', goal: 'Sell 100 units', progress: 35, milestones: [
+        { label: 'Prototype finalised', pct: 15 },
+        { label: 'First 10 units shipped', pct: 25 },
+        { label: 'Received first batch of reviews', pct: 35 },
+      ]
+    },
+    {
+      id: newId(),
+      name: 'Project Beta',
+      goal: 'Tech transfer complete',
+      progress: 60,
+      milestones: [
+        { label: 'IP documentation submitted', pct: 20 },
+        { label: 'Partner NDAs signed', pct: 40 },
+        { label: 'Received first draft of the deck', pct: 60 },
+      ]
+    },
+    {
+      id: newId(),
+      name: 'Project Gamma',
+      goal: 'Publish 40-page zine',
+      progress: 20,
+      milestones: [
+        { label: 'Mood board complete', pct: 10 },
+        { label: 'First 8 illustrations done', pct: 20 },
+      ]
+    },
+  ];
+  save();
+}
+
+render();
+</script>
+</body>
+</html>
