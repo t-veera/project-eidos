@@ -66,6 +66,12 @@ The bar animates to the new position and the milestone is added to the history.
 ### Viewing milestone history
 Hover over any project row to see the full chronological history of every milestone logged.
 
+### Editing a project
+Hover over any project row to reveal two icons on the right. Click the pencil icon ✎ to edit the project name or final goal. Your milestones and progress are untouched.
+
+### Deleting a project
+Hover over any project row and click ✕ on the right. You will be asked to confirm before anything is removed.
+
 ### Reordering projects
 Drag any project name up or down to reprioritize. The order is saved automatically.
 

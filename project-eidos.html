@@ -564,30 +564,36 @@
     background: var(--border);
   }
 
-  /* Delete btn */
-  .delete-btn {
+  /* Row action buttons */
+  .row-actions {
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .project-row:hover .row-actions {
+    opacity: 1;
+  }
+
+  .delete-btn, .edit-btn {
     background: none;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.2s, color 0.2s;
-    font-size: 0.9rem;
-    padding: 0.3rem;
+    transition: color 0.2s;
+    font-size: 0.82rem;
+    padding: 0.3rem 0.4rem;
+    line-height: 1;
   }
 
-  .project-row:hover .delete-btn {
-    opacity: 0.6;
-  }
-
-  .delete-btn:hover {
-    color: #C08B82 !important;
-    opacity: 1 !important;
-  }
+  .edit-btn:hover { color: var(--text-primary); }
+  .delete-btn:hover { color: #C08B82; }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
@@ -639,7 +645,24 @@
   </div>
 </div>
 
-<!-- Update Project Modal -->
+<!-- Edit Project Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h2>Edit Project</h2>
+    <div class="form-group">
+      <label>Project Name</label>
+      <input type="text" id="edit-name" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Final Goal</label>
+      <input type="text" id="edit-goal" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-confirm" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="update-modal">
   <div class="modal">
     <h2 id="update-modal-title">Log Progress</h2>
@@ -769,7 +792,10 @@ function render() {
         </div>
       </div>
       ${historyHTML}
-      <button class="delete-btn" data-id="${p.id}" title="Delete project">✕</button>
+      <div class="row-actions">
+        <button class="edit-btn" data-id="${p.id}" title="Edit project">✎</button>
+        <button class="delete-btn" data-id="${p.id}" title="Delete project">✕</button>
+      </div>
     `;
 
     // Drag events
@@ -803,6 +829,11 @@ function render() {
       openUpdateModal(p.id, p.name);
     });
 
+    // Edit button
+    row.querySelector('.edit-btn').addEventListener('click', () => {
+      openEditModal(p.id);
+    });
+
     // Delete button
     row.querySelector('.delete-btn').addEventListener('click', () => {
       if (confirm(`Delete "${p.name}"? This cannot be undone.`)) {
@@ -829,6 +860,30 @@ function openAddModal() {
   document.getElementById('add-modal').classList.add('open');
   setTimeout(() => document.getElementById('new-name').focus(), 200);
 }
+
+function openEditModal(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  currentUpdateId = id;
+  document.getElementById('edit-name').value = p.name;
+  document.getElementById('edit-goal').value = p.goal;
+  document.getElementById('edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('edit-name').focus(), 200);
+}
+
+function saveEdit() {
+  const name = document.getElementById('edit-name').value.trim();
+  const goal = document.getElementById('edit-goal').value.trim();
+  if (!name || !goal) { alert('Please fill in both fields.'); return; }
+  const p = projects.find(x => x.id === currentUpdateId);
+  if (!p) return;
+  p.name = name;
+  p.goal = goal;
+  save();
+  closeModals();
+  render();
+}
+
 
 function openUpdateModal(id, name) {
   currentUpdateId = id;
@@ -909,6 +964,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModals();
   if (e.key === 'Enter') {
     if (document.getElementById('add-modal').classList.contains('open')) addProject();
+    else if (document.getElementById('edit-modal').classList.contains('open')) saveEdit();
     else if (document.getElementById('update-modal').classList.contains('open')) saveUpdate();
   }
 });
