@@ -56,7 +56,7 @@
     background-color: var(--bg-solid);
     color: var(--text-primary);
     min-height: 100vh;
-    padding: 2.5rem 3rem;
+    padding: 2.5rem 2rem;
     position: relative;
     overflow-x: hidden;
     transition: background-color 0.4s ease, color 0.4s ease;
@@ -178,9 +178,9 @@
   /* Project row */
   .project-row {
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 160px 1fr;
     align-items: center;
-    gap: 2rem;
+    gap: 1.5rem;
     padding: 1.1rem 0;
     border-bottom: 1px solid var(--border);
     position: relative;
@@ -301,24 +301,30 @@
     text-overflow: ellipsis;
   }
 
-  /* Percent label inside bar */
+  /* Percent label inside/outside bar */
   .bar-pct {
     position: absolute;
-    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.7rem;
     font-weight: 500;
-    color: rgba(255,255,255,0.9);
     pointer-events: none;
-    mix-blend-mode: normal;
+    white-space: nowrap;
+  }
+  .bar-pct.inside {
+    right: 8px;
+    color: rgba(255,255,255,0.9);
+  }
+  .bar-pct.outside {
+    color: var(--text-secondary);
   }
 
   /* Bar + goal wrapper */
   .bar-with-goal {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0;
+    width: 100%;
   }
 
   .bar-with-goal .bar-track {
@@ -332,10 +338,12 @@
     letter-spacing: 0.05em;
     color: var(--text-muted);
     white-space: nowrap;
+    width: 180px;
     flex-shrink: 0;
-    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: right;
+    padding-left: 1.2rem;
   }
 
   /* Progress meta line */
@@ -778,8 +786,9 @@ function render() {
           <div class="bar-track">
             <div class="bar-fill" id="fill-${p.id}"
               style="width:${pct}%; background:${color};">
-              ${pct > 8 ? `<span class="bar-pct">${pct}%</span>` : ''}
+              ${pct > 12 ? `<span class="bar-pct inside">${pct}%</span>` : ''}
             </div>
+            ${pct <= 12 ? `<span class="bar-pct outside" style="left:calc(${pct}% + 8px)">${pct}%</span>` : ''}
           </div>
           <span class="goal-label">${escHtml(p.goal)}</span>
         </div>
@@ -924,9 +933,12 @@ function saveUpdate() {
 
   const p = projects.find(x => x.id === currentUpdateId);
   if (!p) return;
-  p.progress = pct;
   p.milestones = p.milestones || [];
   p.milestones.push({ label, pct });
+  // Sort milestones by % ascending
+  p.milestones.sort((a, b) => a.pct - b.pct);
+  // Always keep the highest % as progress
+  p.progress = Math.max(...p.milestones.map(m => m.pct));
   save();
   closeModals();
   render();
