@@ -50,6 +50,11 @@
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Responsive base: exact sizes at 13" (~1440px), scales up on TV */
+  html {
+    font-size: clamp(16px, 1.11vw, 44px);
+  }
+
   body {
     font-family: 'Jost', sans-serif;
     font-weight: 300;
@@ -86,7 +91,7 @@
   .header-left h1 {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 300;
-    font-size: 2.8rem;
+    font-size: 2.9rem;
     letter-spacing: -0.02em;
     line-height: 1;
     color: var(--text-primary);
@@ -178,8 +183,8 @@
   /* Project row */
   .project-row {
     display: grid;
-    grid-template-columns: 160px 1fr;
-    align-items: center;
+    grid-template-columns: 200px 1fr;
+    align-items: start;
     gap: 1.5rem;
     padding: 1.1rem 0;
     border-bottom: 1px solid var(--border);
@@ -200,10 +205,11 @@
   .project-name-col {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.9rem;
     cursor: grab;
     user-select: none;
     padding-right: 1rem;
+    padding-top: 0.35rem;
   }
 
   .project-name-col:active { cursor: grabbing; }
@@ -211,7 +217,7 @@
   .drag-hint {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.7rem;
   }
 
   .drag-dots {
@@ -233,7 +239,7 @@
 
   .proj-name {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 500;
     color: var(--text-primary);
     line-height: 1.2;
@@ -257,11 +263,15 @@
   /* Bar track */
   .bar-track {
     position: relative;
-    height: 28px;
+    height: 1.8rem;
     background: var(--bar-track);
     border-radius: 4px;
     overflow: visible;
     cursor: pointer;
+  }
+
+  .bar-track:hover .bar-fill {
+    filter: brightness(1.1);
   }
 
   .bar-fill {
@@ -306,13 +316,13 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 0.7rem;
-    font-weight: 500;
+    font-size: 0.75rem;
     pointer-events: none;
     white-space: nowrap;
   }
   .bar-pct.inside {
     right: 8px;
+    font-weight: 500;
     color: rgba(255,255,255,0.9);
   }
   .bar-pct.outside {
@@ -322,39 +332,54 @@
   /* Bar + goal wrapper */
   .bar-with-goal {
     display: flex;
-    align-items: center;
-    gap: 0;
+    flex-direction: column;
+    gap: 0.4rem;
     width: 100%;
   }
 
   .bar-with-goal .bar-track {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
   }
 
   /* Goal marker */
   .goal-label {
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    white-space: nowrap;
-    width: 180px;
-    flex-shrink: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
     text-align: right;
-    padding-left: 1.2rem;
+    white-space: normal;
+    line-height: 1.3;
+    flex-shrink: 0;
+    max-width: 40%;
   }
 
   /* Progress meta line */
   .bar-meta {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .bar-meta-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    max-width: 40%;
+  }
+
+  .bar-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex: 1;
+    min-width: 0;
   }
 
   .latest-milestone {
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
     letter-spacing: 0.03em;
   }
@@ -365,7 +390,7 @@
 
   .update-btn {
     font-family: 'Jost', sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.55rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -573,22 +598,37 @@
     background: var(--border);
   }
 
-  /* Row action buttons */
-  .row-actions {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
-    opacity: 0;
-    transition: opacity 0.2s;
+  /* name-click area: + and project name together trigger log progress */
+  .name-click {
+    cursor: pointer;
   }
 
-  .project-row:hover .row-actions {
-    opacity: 1;
+  .name-click:hover .proj-name {
+    color: var(--text-secondary);
   }
+
+  /* + visual cue before project name */
+  .add-progress-btn {
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.2s;
+    pointer-events: none;
+  }
+
+  .name-click:hover .add-progress-btn { color: var(--text-primary); }
+
+  /* Edit/delete shown below project name on hover */
+  .name-actions {
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding-left: 1.4rem;
+  }
+
+  .project-row:hover .name-actions { opacity: 1; }
 
   .delete-btn, .edit-btn {
     background: none;
@@ -596,9 +636,11 @@
     color: var(--text-muted);
     cursor: pointer;
     transition: color 0.2s;
-    font-size: 0.82rem;
-    padding: 0.3rem 0.4rem;
+    font-size: 0.72rem;
+    padding: 0;
     line-height: 1;
+    letter-spacing: 0.05em;
+    font-family: 'Jost', sans-serif;
   }
 
   .edit-btn:hover { color: var(--text-primary); }
@@ -775,22 +817,23 @@ function render() {
     }
 
     row.innerHTML = `
-      <div class="project-name-col" draggable="true">
-        <div class="drag-hint">
+      <div class="project-name-col">
+        <div class="drag-hint name-click" draggable="true" data-id="${p.id}" title="Log progress">
           <div class="drag-dots"><span></span><span></span><span></span></div>
           <span class="proj-name">${escHtml(p.name)}</span>
         </div>
+        <div class="name-actions">
+          <button class="edit-btn" data-id="${p.id}">✎ edit</button>
+          <button class="delete-btn" data-id="${p.id}">✕ delete</button>
+        </div>
       </div>
       <div class="bar-col">
-        <div class="bar-with-goal">
-          <div class="bar-track">
-            <div class="bar-fill" id="fill-${p.id}"
-              style="width:${pct}%; background:${color};">
-              ${pct > 12 ? `<span class="bar-pct inside">${pct}%</span>` : ''}
-            </div>
-            ${pct <= 12 ? `<span class="bar-pct outside" style="left:calc(${pct}% + 8px)">${pct}%</span>` : ''}
+        <div class="bar-track">
+          <div class="bar-fill" id="fill-${p.id}"
+            style="width:${pct}%; background:${color};">
+            ${pct > 12 ? `<span class="bar-pct inside">${pct}%</span>` : ''}
           </div>
-          <span class="goal-label">${escHtml(p.goal)}</span>
+          ${pct <= 12 ? `<span class="bar-pct outside" style="left:calc(${pct}% + 8px)">${pct}%</span>` : ''}
         </div>
         <div class="bar-meta">
           <span class="latest-milestone">
@@ -798,18 +841,14 @@ function render() {
               ? `<strong>${pct}%</strong> — ${escHtml(latest.label)}`
               : '<span style="opacity:0.5">No progress logged yet</span>'}
           </span>
-          <button class="update-btn" data-id="${p.id}">+ Log progress</button>
+          <span class="goal-label">${escHtml(p.goal)}</span>
         </div>
       </div>
       ${historyHTML}
-      <div class="row-actions">
-        <button class="edit-btn" data-id="${p.id}" title="Edit project">✎</button>
-        <button class="delete-btn" data-id="${p.id}" title="Delete project">✕</button>
-      </div>
     `;
 
-    // Drag events
-    const nameCol = row.querySelector('.project-name-col');
+    // Drag events on the name/drag-hint only
+    const nameCol = row.querySelector('.drag-hint');
     nameCol.addEventListener('dragstart', e => {
       dragSrcIdx = idx;
       row.classList.add('dragging');
@@ -834,22 +873,45 @@ function render() {
       }
     });
 
-    // Update button
-    row.querySelector('.update-btn').addEventListener('click', () => {
+    // Bar click to log progress
+    row.querySelector('.bar-track').addEventListener('click', e => {
+      e.stopPropagation();
+      openUpdateModal(p.id, p.name);
+    });
+
+    // name click to log progress
+    row.querySelector('.name-click').addEventListener('click', e => {
+      e.stopPropagation();
       openUpdateModal(p.id, p.name);
     });
 
     // Edit button
-    row.querySelector('.edit-btn').addEventListener('click', () => {
+    row.querySelector('.edit-btn').addEventListener('click', e => {
+      e.stopPropagation();
       openEditModal(p.id);
     });
+    row.querySelector('.edit-btn').addEventListener('mousedown', e => e.stopPropagation());
 
-    // Delete button
-    row.querySelector('.delete-btn').addEventListener('click', () => {
-      if (confirm(`Delete "${p.name}"? This cannot be undone.`)) {
+    // Delete button - two step to avoid browser confirm() blocking
+    const deleteBtn = row.querySelector('.delete-btn');
+    deleteBtn.addEventListener('mousedown', e => e.stopPropagation());
+    deleteBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (deleteBtn.dataset.confirming === 'true') {
         projects = projects.filter(x => x.id !== p.id);
         save();
         render();
+      } else {
+        deleteBtn.dataset.confirming = 'true';
+        deleteBtn.textContent = '✕ sure?';
+        deleteBtn.style.color = '#C08B82';
+        setTimeout(() => {
+          if (deleteBtn.dataset.confirming) {
+            deleteBtn.dataset.confirming = '';
+            deleteBtn.textContent = '✕ delete';
+            deleteBtn.style.color = '';
+          }
+        }, 2500);
       }
     });
 

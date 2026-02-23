@@ -33,7 +33,9 @@ If you have ADHD or work in a way where context-switching is constant and the bi
 
 ## Screenshot
 
-> ![screenshot](image.png)
+![Project Eidos dark mode](image.png)
+
+![Project Eidos log milestone](image-1.png)
 
 ---
 
@@ -57,23 +59,23 @@ Click **+ New Project** in the top right. Enter:
 - **Final goal**, the single thing that means this project is done, e.g. *Publish 40-page zine*
 
 ### Logging progress
-Click **+ Log progress** on any project row. Enter:
+Click the **project name** or anywhere on the **bar** to open the log modal. Enter:
 - **What you completed**, a short label, e.g. *Received first draft of the deck*
 - **New progress %**, freeform, 0–100. You decide how much each milestone is worth.
 
-The bar animates to the new position and the milestone is added to the history.
+The bar animates to the new position and the milestone is added to the history. The bar always reflects the highest % ever logged, so you can log a minor note at a lower % without the bar going backwards.
 
 ### Viewing milestone history
-Hover over any project row to see the full chronological history of every milestone logged.
+Hover over any project row to see the full chronological history of every milestone logged, sorted by %.
 
 ### Editing a project
-Hover over any project row to reveal two icons on the right. Click the pencil icon ✎ to edit the project name or final goal. Your milestones and progress are untouched.
+Hover over any project name to reveal **✎ edit** and **✕ delete** below it. Click edit to update the project name or final goal. Your milestones and progress are untouched.
 
 ### Deleting a project
-Hover over any project row and click ✕ on the right. You will be asked to confirm before anything is removed.
+Hover over the project name and click **✕ delete**. It will change to **✕ sure?**.  click again within 2.5 seconds to confirm. If you don't, it resets. No accidental deletes.
 
 ### Reordering projects
-Drag any project name up or down to reprioritize. The order is saved automatically.
+Drag the project name up or down to reprioritize. The order is saved automatically.
 
 ### Switching theme
 Toggle between dark and light using the switch in the top right. Your preference is remembered.
