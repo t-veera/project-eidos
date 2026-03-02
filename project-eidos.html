@@ -646,6 +646,50 @@
   .edit-btn:hover { color: var(--text-primary); }
   .delete-btn:hover { color: #C08B82; }
 
+  .pause-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    font-size: 0.72rem;
+    padding: 0;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    font-family: 'Jost', sans-serif;
+  }
+
+  .pause-btn:hover { color: var(--renoir-3); }
+
+  .project-row.paused {
+    opacity: 0.45;
+  }
+
+  .project-row.paused .bar-fill {
+    filter: grayscale(0.9);
+  }
+
+  .project-row.paused .bar-track {
+    cursor: not-allowed;
+  }
+
+  .project-row.paused .bar-track:hover .bar-fill {
+    filter: grayscale(0.9);
+  }
+
+  .project-row.paused .name-click {
+    cursor: grab;
+  }
+
+  .paused-badge {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -797,7 +841,7 @@ function render() {
     const latest = milestones[milestones.length - 1] || null;
 
     const row = document.createElement('div');
-    row.className = 'project-row';
+    row.className = 'project-row' + (p.paused ? ' paused' : '');
     row.dataset.id = p.id;
     row.dataset.idx = idx;
 
@@ -818,12 +862,14 @@ function render() {
 
     row.innerHTML = `
       <div class="project-name-col">
-        <div class="drag-hint name-click" draggable="true" data-id="${p.id}" title="Log progress">
+        <div class="drag-hint name-click" draggable="true" data-id="${p.id}" title="${p.paused ? 'Project paused — drag to reorder' : 'Log progress'}">
           <div class="drag-dots"><span></span><span></span><span></span></div>
           <span class="proj-name">${escHtml(p.name)}</span>
+          ${p.paused ? '<span class="paused-badge"> · paused</span>' : ''}
         </div>
         <div class="name-actions">
           <button class="edit-btn" data-id="${p.id}">✎ edit</button>
+          <button class="pause-btn" data-id="${p.id}">${p.paused ? '▶ resume' : '⏸ pause'}</button>
           <button class="delete-btn" data-id="${p.id}">✕ delete</button>
         </div>
       </div>
@@ -873,16 +919,16 @@ function render() {
       }
     });
 
-    // Bar click to log progress
+    // Bar click to log progress (blocked when paused)
     row.querySelector('.bar-track').addEventListener('click', e => {
       e.stopPropagation();
-      openUpdateModal(p.id, p.name);
+      if (!p.paused) openUpdateModal(p.id, p.name);
     });
 
-    // name click to log progress
+    // name click to log progress (blocked when paused)
     row.querySelector('.name-click').addEventListener('click', e => {
       e.stopPropagation();
-      openUpdateModal(p.id, p.name);
+      if (!p.paused) openUpdateModal(p.id, p.name);
     });
 
     // Edit button
@@ -891,6 +937,16 @@ function render() {
       openEditModal(p.id);
     });
     row.querySelector('.edit-btn').addEventListener('mousedown', e => e.stopPropagation());
+
+    // Pause button — toggles paused state
+    const pauseBtn = row.querySelector('.pause-btn');
+    pauseBtn.addEventListener('mousedown', e => e.stopPropagation());
+    pauseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      p.paused = !p.paused;
+      save();
+      render();
+    });
 
     // Delete button - two step to avoid browser confirm() blocking
     const deleteBtn = row.querySelector('.delete-btn');
