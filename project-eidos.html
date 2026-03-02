@@ -690,6 +690,36 @@
     font-weight: 300;
   }
 
+  .position-input {
+    width: 1.6rem;
+    background: none;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--text-muted);
+    font-family: 'Jost', sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+    padding: 0;
+    outline: none;
+    cursor: text;
+    transition: border-color 0.2s, color 0.2s;
+    -moz-appearance: textfield;
+  }
+
+  .position-input::-webkit-inner-spin-button,
+  .position-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .position-input:hover {
+    border-bottom-color: var(--border);
+    color: var(--text-secondary);
+  }
+
+  .position-input:focus {
+    color: var(--text-primary);
+    border-bottom-color: var(--text-secondary);
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -868,6 +898,7 @@ function render() {
           ${p.paused ? '<span class="paused-badge"> · paused</span>' : ''}
         </div>
         <div class="name-actions">
+          <input class="position-input" type="number" value="${idx + 1}" min="1" max="${projects.length}" title="Type position & press Enter">
           <button class="edit-btn" data-id="${p.id}">✎ edit</button>
           <button class="pause-btn" data-id="${p.id}">${p.paused ? '▶ resume' : '⏸ pause'}</button>
           <button class="delete-btn" data-id="${p.id}">✕ delete</button>
@@ -938,12 +969,39 @@ function render() {
     });
     row.querySelector('.edit-btn').addEventListener('mousedown', e => e.stopPropagation());
 
+    // Position input — type number & Enter to jump to that row
+    const posInput = row.querySelector('.position-input');
+    posInput.addEventListener('mousedown', e => e.stopPropagation());
+    posInput.addEventListener('click', e => { e.stopPropagation(); posInput.select(); });
+    posInput.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        const target = Math.min(projects.length, Math.max(1, parseInt(posInput.value) || 1)) - 1;
+        if (target !== idx) {
+          const moved = projects.splice(idx, 1)[0];
+          projects.splice(target, 0, moved);
+          save();
+          render();
+        } else {
+          posInput.blur();
+        }
+      } else if (e.key === 'Escape') {
+        posInput.value = idx + 1;
+        posInput.blur();
+      }
+    });
+
     // Pause button — toggles paused state
     const pauseBtn = row.querySelector('.pause-btn');
     pauseBtn.addEventListener('mousedown', e => e.stopPropagation());
     pauseBtn.addEventListener('click', e => {
       e.stopPropagation();
       p.paused = !p.paused;
+      if (p.paused) {
+        // Move to end of list
+        const removed = projects.splice(idx, 1)[0];
+        projects.push(removed);
+      }
       save();
       render();
     });
