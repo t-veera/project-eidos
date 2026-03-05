@@ -783,6 +783,7 @@
   .sync-dot.online { background: var(--renoir-2); }
   .sync-dot.busy   { background: var(--renoir-3); animation: dot-blink 0.65s infinite; }
   .sync-dot.error  { background: var(--renoir-1); }
+  .sync-dot.warn   { background: var(--renoir-3); }
 
   @keyframes dot-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
@@ -828,7 +829,8 @@
     <div class="sync-group">
       <div class="sync-dot" id="sync-dot"></div>
       <span class="sync-label" id="sync-label">Local</span>
-      <button class="btn-sm nas-save" id="btn-nas-save" onclick="saveToNAS()" disabled title="Push current data to NAS">↑ NAS</button>
+      <button class="btn-sm nas-save" id="btn-nas-save" onclick="saveToNAS()" disabled title="Push local data to NAS">↑ NAS</button>
+      <button class="btn-sm" onclick="openNASSettings()" title="NAS Settings">⚙</button>
     </div>
 
     <div class="sync-divider"></div>
@@ -903,6 +905,48 @@
   </div>
 </div>
 
+<!-- NAS Settings Modal -->
+<div class="modal-overlay" id="nas-settings-modal">
+  <div class="modal">
+    <h2>NAS Settings</h2>
+    <div class="form-group">
+      <label>Synology API URL</label>
+      <input type="url" id="nas-url-input" placeholder="http://192.168.1.x/eidos/api.php" autocomplete="off">
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.5rem;">Stored on this device only — never in code or synced to others.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="clearNASSettings()">Clear</button>
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-confirm" onclick="saveNASSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conflict Modal -->
+<div class="modal-overlay" id="conflict-modal">
+  <div class="modal">
+    <h2>Sync Conflict</h2>
+    <div class="form-group">
+      <p style="color:var(--text-secondary);margin-bottom:1rem;">This device and the NAS have different versions. Choose which to keep — the other will be overwritten.</p>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.8rem;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted);">This device:</span>
+          <strong id="conflict-local-time" style="color:var(--text-primary);"></strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted);">NAS:</span>
+          <strong id="conflict-nas-time" style="color:var(--text-primary);"></strong>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Keep offline</button>
+      <button class="btn-cancel" onclick="resolveConflictPull()">← Use NAS</button>
+      <button class="btn-confirm" onclick="resolveConflictPush()">Push local →</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── RENOIR PALETTE ──────────────────────────────────────────────────────────
 const COLORS_DARK = [
@@ -926,7 +970,10 @@ let currentUpdateId = null;
 let dragSrcIdx = null;
 
 function save() {
+  const ts = Date.now();
   localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
+  localStorage.setItem('project_eidos_ts', String(ts));
+  scheduleNASSave();
 }
 
 function load() {
@@ -1230,8 +1277,23 @@ function saveUpdate() {
 }
 
 // ─── NAS SYNC ────────────────────────────────────────────────────────────────
-const NAS_API = 'api.php';
-let nasOnline = false;
+let nasOnline     = false;
+let _pendingNASData = null;
+let _nasSaveTimer   = null;
+
+function getNASUrl() {
+  return localStorage.getItem('project_eidos_nas_url') || null;
+}
+
+function getLocalTs() {
+  return parseInt(localStorage.getItem('project_eidos_ts') || '0', 10);
+}
+
+function scheduleNASSave() {
+  if (!nasOnline || !getNASUrl()) return;
+  clearTimeout(_nasSaveTimer);
+  _nasSaveTimer = setTimeout(() => saveToNAS(true), 2500);
+}
 
 function setSyncUI(state, text) {
   const dot   = document.getElementById('sync-dot');
@@ -1242,48 +1304,51 @@ function setSyncUI(state, text) {
   if (btn) btn.disabled = (state !== 'online');
 }
 
-/** Ping api.php and return true if reachable. */
 async function pingNAS() {
+  const url = getNASUrl();
+  if (!url) return false;
   try {
-    const r = await fetch(NAS_API + '?ping=1', { method: 'GET', cache: 'no-store' });
+    const r = await fetch(url + '?ping=1', { method: 'GET', cache: 'no-store' });
     return r.ok;
   } catch (e) {
     return false;
   }
 }
 
-/** Load projects from NAS. Returns true if data was loaded. */
 async function loadFromNAS() {
+  const url = getNASUrl();
+  if (!url) return { loaded: false, nasTs: 0, data: [] };
   try {
-    const r = await fetch(NAS_API, { method: 'GET', cache: 'no-store' });
-    if (!r.ok) return false;
-    const data = await r.json();
-    if (Array.isArray(data) && data.length > 0) {
-      projects = data;
-      localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
-      return true;
-    }
-    return false;
+    const r = await fetch(url, { method: 'GET', cache: 'no-store' });
+    if (!r.ok) return { loaded: false, nasTs: 0, data: [] };
+    const payload = await r.json();
+    const nasTs = payload.lastModified || 0;
+    const data  = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+    return { loaded: data.length > 0, nasTs, data };
   } catch (e) {
-    return false;
+    return { loaded: false, nasTs: 0, data: [] };
   }
 }
 
-/** Push current projects to NAS. */
-async function saveToNAS() {
-  if (!nasOnline) return;
-  setSyncUI('busy', 'Saving…');
+async function saveToNAS(silent = false) {
+  const url = getNASUrl();
+  if (!nasOnline || !url) return;
+  if (!silent) setSyncUI('busy', 'Saving…');
   try {
-    const r = await fetch(NAS_API, {
-      method: 'POST',
+    const ts = Date.now();
+    const r  = await fetch(url, {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(projects),
+      body:    JSON.stringify({ lastModified: ts, data: projects }),
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const now = new Date();
-    const hhmm = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
-    setSyncUI('online', 'Saved ' + hhmm);
-    setTimeout(() => setSyncUI('online', 'NAS'), 3000);
+    localStorage.setItem('project_eidos_ts', String(ts));
+    if (!silent) {
+      const now  = new Date();
+      const hhmm = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+      setSyncUI('online', 'Saved ' + hhmm);
+      setTimeout(() => setSyncUI('online', 'NAS'), 3000);
+    }
   } catch (e) {
     setSyncUI('error', 'Failed');
     setTimeout(() => setSyncUI('online', 'NAS'), 3000);
@@ -1308,8 +1373,9 @@ function importData(e) {
   const reader = new FileReader();
   reader.onload = async ev => {
     try {
-      const data = JSON.parse(ev.target.result);
-      if (!Array.isArray(data)) throw new Error('Not an array');
+      const parsed = JSON.parse(ev.target.result);
+      const data   = Array.isArray(parsed.data) ? parsed.data : (Array.isArray(parsed) ? parsed : null);
+      if (!data) throw new Error('Not valid eidos data');
       projects = data;
       save();
       if (nasOnline) await saveToNAS();
@@ -1320,21 +1386,101 @@ function importData(e) {
     }
   };
   reader.readAsText(file);
-  e.target.value = ''; // allow re-selecting same file
+  e.target.value = '';
 }
 
-/** Periodically re-check NAS when offline so the dot turns green automatically. */
+// ─── NAS SETTINGS ────────────────────────────────────────────────────────────
+function openNASSettings() {
+  document.getElementById('nas-url-input').value = getNASUrl() || '';
+  document.getElementById('nas-settings-modal').classList.add('open');
+}
+
+function saveNASSettings() {
+  const val = document.getElementById('nas-url-input').value.trim();
+  if (val) {
+    localStorage.setItem('project_eidos_nas_url', val);
+  } else {
+    localStorage.removeItem('project_eidos_nas_url');
+  }
+  closeModals();
+  nasOnline = false;
+  if (getNASUrl()) {
+    setSyncUI('busy', 'Checking…');
+    pingNAS().then(ok => {
+      nasOnline = ok;
+      setSyncUI(ok ? 'online' : '', ok ? 'NAS' : 'Offline');
+    });
+  } else {
+    setSyncUI('', 'Local');
+  }
+}
+
+function clearNASSettings() {
+  localStorage.removeItem('project_eidos_nas_url');
+  localStorage.removeItem('project_eidos_ts');
+  document.getElementById('nas-url-input').value = '';
+  nasOnline = false;
+  setSyncUI('', 'Local');
+}
+
+// ─── CONFLICT RESOLUTION ─────────────────────────────────────────────────────
+function showConflictDialog(localTimestamp, nasTimestamp, nasData) {
+  _pendingNASData = nasData;
+  const fmt = ts => ts ? new Date(ts).toLocaleString() : 'unknown';
+  document.getElementById('conflict-local-time').textContent = fmt(localTimestamp);
+  document.getElementById('conflict-nas-time').textContent   = fmt(nasTimestamp);
+  document.getElementById('conflict-modal').classList.add('open');
+}
+
+async function resolveConflictPush() {
+  _pendingNASData = null;
+  closeModals();
+  await saveToNAS();
+}
+
+async function resolveConflictPull() {
+  if (!_pendingNASData) { closeModals(); return; }
+  const data = _pendingNASData;
+  _pendingNASData = null;
+  closeModals();
+  projects = data;
+  const ts = Date.now();
+  localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
+  localStorage.setItem('project_eidos_ts', String(ts));
+  render();
+  setSyncUI('online', 'Pulled');
+  setTimeout(() => setSyncUI('online', 'NAS'), 3000);
+}
+
+/** Periodically re-check NAS; detect conflicts on reconnect. */
 function startNASWatcher() {
   setInterval(async () => {
-    if (!nasOnline) {
+    if (!nasOnline && getNASUrl()) {
       const ok = await pingNAS();
       if (ok) {
         nasOnline = true;
-        setSyncUI('online', 'NAS back');
-        setTimeout(() => setSyncUI('online', 'NAS'), 2500);
+        const { loaded, nasTs, data } = await loadFromNAS();
+        const lts = getLocalTs();
+        if (!loaded) {
+          setSyncUI('online', 'NAS back');
+          if (projects.length > 0) await saveToNAS(true);
+        } else if (lts > 0 && lts > nasTs) {
+          setSyncUI('warn', 'Conflict');
+          showConflictDialog(lts, nasTs, data);
+        } else if (nasTs > lts) {
+          projects = data;
+          localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
+          localStorage.setItem('project_eidos_ts', String(nasTs));
+          render();
+          setSyncUI('online', 'NAS updated');
+          setTimeout(() => setSyncUI('online', 'NAS'), 3000);
+        } else {
+          setSyncUI('online', 'NAS back');
+          setTimeout(() => setSyncUI('online', 'NAS'), 2500);
+        }
       }
     }
-  }, 15000); // every 15 s
+  }, 15000);
 }
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
@@ -1370,64 +1516,75 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 });
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
+function seedIfEmpty() {
+  if (projects.length > 0) return;
+  projects = [
+    { id: newId(), name: 'Project Alpha', goal: 'Sell 100 units', progress: 35, milestones: [
+        { label: 'Prototype finalised', pct: 15 },
+        { label: 'First 10 units shipped', pct: 25 },
+        { label: 'Received first batch of reviews', pct: 35 },
+      ]
+    },
+    { id: newId(), name: 'Project Beta', goal: 'Tech transfer complete', progress: 60, milestones: [
+        { label: 'IP documentation submitted', pct: 20 },
+        { label: 'Partner NDAs signed', pct: 40 },
+        { label: 'Received first draft of the deck', pct: 60 },
+      ]
+    },
+    { id: newId(), name: 'Project Gamma', goal: 'Publish 40-page zine', progress: 20, milestones: [
+        { label: 'Mood board complete', pct: 10 },
+        { label: 'First 8 illustrations done', pct: 20 },
+      ]
+    },
+  ];
+  save();
+}
+
 async function init() {
   loadTheme();
 
-  // Try to reach NAS api.php
+  const url = getNASUrl();
+  if (!url) {
+    load();
+    setSyncUI('', 'No NAS');
+    seedIfEmpty();
+    render();
+    startNASWatcher();
+    return;
+  }
+
   const reachable = await pingNAS();
   if (reachable) {
     nasOnline = true;
     setSyncUI('busy', 'Loading…');
-    const nasLoaded = await loadFromNAS();
-    if (nasLoaded) {
-      setSyncUI('online', 'NAS');
-    } else {
-      // NAS reachable but no data yet — use localStorage
+    const { loaded, nasTs, data } = await loadFromNAS();
+    const lts = getLocalTs();
+
+    if (!loaded) {
+      // NAS empty — load local and push up
       load();
       setSyncUI('online', 'NAS');
+      if (projects.length > 0) await saveToNAS(true);
+    } else if (lts === 0 || nasTs >= lts) {
+      // NAS is authoritative — pull
+      projects = data;
+      localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
+      localStorage.setItem('project_eidos_ts', String(nasTs));
+      setSyncUI('online', 'NAS');
+    } else {
+      // Local is newer — show conflict dialog
+      load();
+      setSyncUI('warn', 'Conflict');
+      showConflictDialog(lts, nasTs, data);
     }
   } else {
-    // Offline or no NAS — fall back to localStorage
     load();
-    setSyncUI('', 'Local');
+    setSyncUI('', 'Offline');
   }
 
-  // Seed demo projects only when truly empty (no localStorage, no NAS data)
-  if (projects.length === 0) {
-    projects = [
-      { id: newId(), name: 'Project Alpha', goal: 'Sell 100 units', progress: 35, milestones: [
-          { label: 'Prototype finalised', pct: 15 },
-          { label: 'First 10 units shipped', pct: 25 },
-          { label: 'Received first batch of reviews', pct: 35 },
-        ]
-      },
-      {
-        id: newId(),
-        name: 'Project Beta',
-        goal: 'Tech transfer complete',
-        progress: 60,
-        milestones: [
-          { label: 'IP documentation submitted', pct: 20 },
-          { label: 'Partner NDAs signed', pct: 40 },
-          { label: 'Received first draft of the deck', pct: 60 },
-        ]
-      },
-      {
-        id: newId(),
-        name: 'Project Gamma',
-        goal: 'Publish 40-page zine',
-        progress: 20,
-        milestones: [
-          { label: 'Mood board complete', pct: 10 },
-          { label: 'First 8 illustrations done', pct: 20 },
-        ]
-      },
-    ];
-    save();
-  }
-
+  seedIfEmpty();
   render();
-  startNASWatcher(); // background reconnect checker
+  startNASWatcher();
 }
 
 init();
