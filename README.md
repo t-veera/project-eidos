@@ -172,10 +172,27 @@ The NAS URL is stored only in your browser's `localStorage` — it is never in t
 
 ### Multi-device setup
 
-Each device:
-1. Keeps its own local copy of `project-eidos.html`
-2. Configures the NAS URL once via ⚙
-3. Syncs automatically when in range
+| Device | How to open | NAS sync |
+|---|---|---|
+| Laptop | Open local `project-eidos.html` directly | ✓ Works |
+| Phone / tablet on home WiFi | Open `http://NAS-IP/eidos/project-eidos.html` in browser | ✓ Works |
+| Phone / tablet away from home | See below | — |
+
+### Mobile browser limitations
+
+Mobile browsers (iOS Safari, Chrome on Android, etc.) block cross-origin requests from locally-opened `file://` pages to `http://` servers. This means:
+
+- Opening the HTML as a local file on your phone **will not sync with the NAS**, even when on the same WiFi
+- The app will open and work using `localStorage`, but changes won't reach the NAS
+- `localStorage` is per-origin — data saved via `file://` is separate from data saved via the NAS URL
+
+**For phone use at home:** always open via the NAS URL (`http://NAS-IP/eidos/project-eidos.html`), not as a local file.
+
+**For phone use away from home**, two options:
+
+1. **Tailscale** (recommended) — free VPN that connects your phone directly to your NAS over cellular, with no ports opened on your router. Install Tailscale on both the NAS (via Package Center) and your phone, then update the NAS URL in ⚙ to the Tailscale IP (`100.x.x.x`). Works anywhere you have signal.
+
+2. **HTTPS + service worker** — set up a local HTTPS certificate on the NAS (self-signed, no external access required), which unlocks service worker support. The service worker caches the app so it loads even without any network connection. Works fully offline.
 
 ---
 
