@@ -92,7 +92,7 @@ Hover over the project name and click **✕ delete**. It changes to **✕ sure?*
 Toggle between dark and light using the switch in the top right. Your preference is remembered.
 
 ### Exporting / importing data
-Use **↓ Export** to download your data as `eidos-data.json`. Use **↑ Import** to load it back. If NAS is connected, importing auto-pushes to NAS as well.
+Use **↑ Export** to download your data as `eidos-data.json`. Use **↓ Import** to load it back. If NAS is connected, importing auto-pushes to NAS as well.
 
 ---
 
@@ -125,6 +125,20 @@ When connected, `api.php` reads and writes `eidos-data.json` in the same folder 
 ### Requirements
 - Synology NAS with **Web Station** enabled and PHP support
 - Both `project-eidos.html` and `api.php` placed in the web-served folder
+
+### Synology setup (step by step)
+
+1. In DSM, open **Web Station** → **Web Service Portal** → edit the default portal
+2. Make sure **PHP** is set to a profile (e.g. `Default Profile (PHP 8.0)`) — not "Static website only"
+3. Open **File Station** and navigate to `/web/` — create a subfolder called `eidos`
+4. Upload `project-eidos.html` and `api.php` into `/web/eidos/`
+5. Right-click the `eidos` folder → **Properties** → **Permission** tab
+6. Ensure the `http` user has **Read & Write** permission (not just Read)
+7. Tick **"Apply to this folder, sub-folders and files"** → Save
+8. Test by opening `http://YOUR-NAS-IP/eidos/api.php` in a browser — you should see `{"lastModified":0,"data":[]}`
+9. Open `project-eidos.html` on your device, click **⚙**, enter `http://YOUR-NAS-IP/eidos/api.php` → Save
+
+The `http` user needs write permission so `api.php` can create and update `eidos-data.json` on save.
 
 ### How sync works
 

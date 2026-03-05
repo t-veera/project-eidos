@@ -804,6 +804,73 @@
     flex-shrink: 0;
   }
 
+  /* ─── RESPONSIVE ────────────────────────────────────────────────────────── */
+
+  /* ── Tablet / iPad (≤ 900px) ── */
+  @media (max-width: 900px) {
+    body { padding: 1.5rem 1.5rem; }
+    header { flex-wrap: wrap; gap: 0.8rem; margin-bottom: 2rem; }
+    .header-actions { flex-wrap: wrap; gap: 0.5rem; }
+    .project-row { grid-template-columns: 160px 1fr; gap: 1rem; }
+    .history-tooltip { left: 162px; }
+  }
+
+  /* ── Mobile portrait (≤ 600px) ── */
+  @media (max-width: 600px) {
+    html { font-size: clamp(14px, 4.2vw, 18px); }
+    body { padding: 1rem 0.9rem; }
+
+    header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+    }
+
+    .header-left h1 { font-size: 2rem; }
+    .header-actions { width: 100%; flex-wrap: wrap; gap: 0.4rem; }
+    .sync-divider { display: none; }
+    .theme-label { display: none; }
+
+    /* Single-column project rows: name on top, bar below */
+    .project-row { grid-template-columns: 1fr; gap: 0.5rem; padding: 0.9rem 0; }
+    .project-name-col { padding-right: 0; padding-top: 0; }
+
+    /* Bigger bar for easier tapping */
+    .bar-track { height: 2.2rem; }
+
+    /* Goal label wraps full width */
+    .bar-meta { flex-wrap: wrap; gap: 0.5rem; }
+    .goal-label { max-width: 100%; text-align: left; }
+
+    /* History tooltip: start from left edge */
+    .history-tooltip { left: 0; max-width: calc(100vw - 1.8rem); }
+  }
+
+  /* ── Touch devices: controls always visible, CSS hover disabled ── */
+  @media (hover: none) {
+    .name-actions { opacity: 1; }
+    .drag-dots { opacity: 0.3; }
+
+    /* Disable CSS hover tooltip — JS .open class used instead */
+    .project-row:hover .history-tooltip { display: none; }
+    .history-tooltip.open { display: block; }
+
+    /* Bigger tap targets for action buttons */
+    .edit-btn, .pause-btn, .delete-btn { font-size: 0.8rem; padding: 0.3rem 0.15rem; }
+    .bar-track { min-height: 2.2rem; }
+  }
+
+  /* ── Large screen / TV (≥ 1600px) ── */
+  @media (min-width: 1600px) {
+    body { padding: 3rem 5rem; }
+    header { margin-bottom: 4rem; padding-bottom: 2rem; }
+    .project-row { grid-template-columns: 260px 1fr; gap: 2.5rem; padding: 1.6rem 0; }
+    .bar-track { height: 2.2rem; }
+    .history-tooltip { left: 262px; }
+  }
+
 </style>
 </head>
 <body>
@@ -816,9 +883,9 @@
   <div class="header-actions">
     <!-- Data transfer -->
     <div class="sync-group">
-      <button class="btn-sm" onclick="exportData()" title="Download all projects as a JSON file">↓ Export</button>
+      <button class="btn-sm" onclick="exportData()" title="Download all projects as a JSON file">↑ Export</button>
       <label class="btn-sm" title="Load projects from a JSON export file">
-        ↑ Import
+        ↓ Import
         <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
       </label>
     </div>
@@ -1173,6 +1240,62 @@ function render() {
       }
     });
 
+    // ─── Touch drag to reorder ──────────────────────────────────────────────
+    let isTouchDragging = false;
+    let touchOriginY = 0;
+
+    nameCol.addEventListener('touchstart', e => {
+      touchOriginY = e.touches[0].clientY;
+      isTouchDragging = false;
+    }, { passive: true });
+
+    nameCol.addEventListener('touchmove', e => {
+      if (Math.abs(e.touches[0].clientY - touchOriginY) > 10) {
+        isTouchDragging = true;
+        const touch = e.touches[0];
+        document.querySelectorAll('.project-row').forEach(r => r.classList.remove('drag-over'));
+        const els = document.elementsFromPoint(touch.clientX, touch.clientY);
+        const targetEl = els.find(el => el.classList?.contains('project-row') && el !== row);
+        if (targetEl) targetEl.classList.add('drag-over');
+      }
+    }, { passive: true });
+
+    nameCol.addEventListener('touchend', e => {
+      document.querySelectorAll('.project-row').forEach(r => r.classList.remove('drag-over'));
+      if (!isTouchDragging) return;
+      e.preventDefault(); // block synthesized click after drag
+      const touch = e.changedTouches[0];
+      const rows = [...document.querySelectorAll('.project-row')];
+      const targetRow = rows.find(r => {
+        const rect = r.getBoundingClientRect();
+        return touch.clientY >= rect.top && touch.clientY <= rect.bottom && r !== row;
+      });
+      if (targetRow) {
+        const targetIdx = parseInt(targetRow.dataset.idx);
+        if (!isNaN(targetIdx)) {
+          const moved = projects.splice(idx, 1)[0];
+          projects.splice(targetIdx, 0, moved);
+          save();
+          render();
+        }
+      }
+      isTouchDragging = false;
+    });
+
+    // ─── Tap bar-meta to toggle milestone history on touch ──────────────────
+    if (milestones.length > 0) {
+      row.querySelector('.bar-meta').addEventListener('click', e => {
+        if (!window.matchMedia('(hover: none)').matches) return;
+        e.stopPropagation();
+        const tooltip = row.querySelector('.history-tooltip');
+        if (!tooltip) return;
+        document.querySelectorAll('.history-tooltip.open').forEach(t => {
+          if (t !== tooltip) t.classList.remove('open');
+        });
+        tooltip.classList.toggle('open');
+      });
+    }
+
     list.appendChild(row);
   });
 }
@@ -1396,8 +1519,9 @@ function openNASSettings() {
 }
 
 function saveNASSettings() {
-  const val = document.getElementById('nas-url-input').value.trim();
+  let val = document.getElementById('nas-url-input').value.trim();
   if (val) {
+    if (!/^https?:\/\//i.test(val)) val = 'http://' + val;
     localStorage.setItem('project_eidos_nas_url', val);
   } else {
     localStorage.removeItem('project_eidos_nas_url');
