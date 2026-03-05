@@ -725,6 +725,83 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+  /* ─── NAS / DATA SYNC ──────────────────────────────────────────────────── */
+  .sync-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-sm {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.9rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: 'Jost', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  .btn-sm:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+    background: var(--surface);
+  }
+
+  .btn-sm:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  label.btn-sm { cursor: pointer; }
+
+  /* NAS-specific save button: tinted green when live */
+  .btn-sm.nas-save:not(:disabled):hover {
+    border-color: var(--renoir-2);
+    color: var(--renoir-2);
+    background: transparent;
+  }
+
+  /* Status dot */
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.4s;
+  }
+  .sync-dot.online { background: var(--renoir-2); }
+  .sync-dot.busy   { background: var(--renoir-3); animation: dot-blink 0.65s infinite; }
+  .sync-dot.error  { background: var(--renoir-1); }
+
+  @keyframes dot-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .sync-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+    min-width: 3.5rem;
+    transition: color 0.3s;
+  }
+
+  .sync-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
 
 </style>
 </head>
@@ -736,6 +813,26 @@
     <p>All projects at a glance</p>
   </div>
   <div class="header-actions">
+    <!-- Data transfer -->
+    <div class="sync-group">
+      <button class="btn-sm" onclick="exportData()" title="Download all projects as a JSON file">↓ Export</button>
+      <label class="btn-sm" title="Load projects from a JSON export file">
+        ↑ Import
+        <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+      </label>
+    </div>
+
+    <div class="sync-divider"></div>
+
+    <!-- NAS sync -->
+    <div class="sync-group">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span class="sync-label" id="sync-label">Local</span>
+      <button class="btn-sm nas-save" id="btn-nas-save" onclick="saveToNAS()" disabled title="Push current data to NAS">↑ NAS</button>
+    </div>
+
+    <div class="sync-divider"></div>
+
     <span class="theme-label" id="theme-label">Dark</span>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
     <button class="btn-add" onclick="openAddModal()">
@@ -1132,6 +1229,114 @@ function saveUpdate() {
   });
 }
 
+// ─── NAS SYNC ────────────────────────────────────────────────────────────────
+const NAS_API = 'api.php';
+let nasOnline = false;
+
+function setSyncUI(state, text) {
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  const btn   = document.getElementById('btn-nas-save');
+  dot.className = 'sync-dot' + (state ? ' ' + state : '');
+  if (text !== undefined) label.textContent = text;
+  if (btn) btn.disabled = (state !== 'online');
+}
+
+/** Ping api.php and return true if reachable. */
+async function pingNAS() {
+  try {
+    const r = await fetch(NAS_API + '?ping=1', { method: 'GET', cache: 'no-store' });
+    return r.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+/** Load projects from NAS. Returns true if data was loaded. */
+async function loadFromNAS() {
+  try {
+    const r = await fetch(NAS_API, { method: 'GET', cache: 'no-store' });
+    if (!r.ok) return false;
+    const data = await r.json();
+    if (Array.isArray(data) && data.length > 0) {
+      projects = data;
+      localStorage.setItem('project_eidos_v1', JSON.stringify(projects));
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/** Push current projects to NAS. */
+async function saveToNAS() {
+  if (!nasOnline) return;
+  setSyncUI('busy', 'Saving…');
+  try {
+    const r = await fetch(NAS_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(projects),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const now = new Date();
+    const hhmm = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+    setSyncUI('online', 'Saved ' + hhmm);
+    setTimeout(() => setSyncUI('online', 'NAS'), 3000);
+  } catch (e) {
+    setSyncUI('error', 'Failed');
+    setTimeout(() => setSyncUI('online', 'NAS'), 3000);
+  }
+}
+
+/** Export projects as a downloadable JSON file. */
+function exportData() {
+  const json = JSON.stringify(projects, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'eidos-data.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/** Import projects from a JSON file; auto-pushes to NAS if connected. */
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error('Not an array');
+      projects = data;
+      save();
+      if (nasOnline) await saveToNAS();
+      render();
+      alert('Imported ' + data.length + ' project(s).');
+    } catch (ex) {
+      alert('Invalid file. Please pick a valid eidos-data.json export.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // allow re-selecting same file
+}
+
+/** Periodically re-check NAS when offline so the dot turns green automatically. */
+function startNASWatcher() {
+  setInterval(async () => {
+    if (!nasOnline) {
+      const ok = await pingNAS();
+      if (ok) {
+        nasOnline = true;
+        setSyncUI('online', 'NAS back');
+        setTimeout(() => setSyncUI('online', 'NAS'), 2500);
+      }
+    }
+  }, 15000); // every 15 s
+}
+
 // ─── THEME ───────────────────────────────────────────────────────────────────
 function toggleTheme() {
   const html = document.documentElement;
@@ -1165,44 +1370,67 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 });
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
-loadTheme();
-load();
+async function init() {
+  loadTheme();
 
-// Seed demo projects if empty
-if (projects.length === 0) {
-  projects = [
-    { id: newId(), name: 'Project Alpha', goal: 'Sell 100 units', progress: 35, milestones: [
-        { label: 'Prototype finalised', pct: 15 },
-        { label: 'First 10 units shipped', pct: 25 },
-        { label: 'Received first batch of reviews', pct: 35 },
-      ]
-    },
-    {
-      id: newId(),
-      name: 'Project Beta',
-      goal: 'Tech transfer complete',
-      progress: 60,
-      milestones: [
-        { label: 'IP documentation submitted', pct: 20 },
-        { label: 'Partner NDAs signed', pct: 40 },
-        { label: 'Received first draft of the deck', pct: 60 },
-      ]
-    },
-    {
-      id: newId(),
-      name: 'Project Gamma',
-      goal: 'Publish 40-page zine',
-      progress: 20,
-      milestones: [
-        { label: 'Mood board complete', pct: 10 },
-        { label: 'First 8 illustrations done', pct: 20 },
-      ]
-    },
-  ];
-  save();
+  // Try to reach NAS api.php
+  const reachable = await pingNAS();
+  if (reachable) {
+    nasOnline = true;
+    setSyncUI('busy', 'Loading…');
+    const nasLoaded = await loadFromNAS();
+    if (nasLoaded) {
+      setSyncUI('online', 'NAS');
+    } else {
+      // NAS reachable but no data yet — use localStorage
+      load();
+      setSyncUI('online', 'NAS');
+    }
+  } else {
+    // Offline or no NAS — fall back to localStorage
+    load();
+    setSyncUI('', 'Local');
+  }
+
+  // Seed demo projects only when truly empty (no localStorage, no NAS data)
+  if (projects.length === 0) {
+    projects = [
+      { id: newId(), name: 'Project Alpha', goal: 'Sell 100 units', progress: 35, milestones: [
+          { label: 'Prototype finalised', pct: 15 },
+          { label: 'First 10 units shipped', pct: 25 },
+          { label: 'Received first batch of reviews', pct: 35 },
+        ]
+      },
+      {
+        id: newId(),
+        name: 'Project Beta',
+        goal: 'Tech transfer complete',
+        progress: 60,
+        milestones: [
+          { label: 'IP documentation submitted', pct: 20 },
+          { label: 'Partner NDAs signed', pct: 40 },
+          { label: 'Received first draft of the deck', pct: 60 },
+        ]
+      },
+      {
+        id: newId(),
+        name: 'Project Gamma',
+        goal: 'Publish 40-page zine',
+        progress: 20,
+        milestones: [
+          { label: 'Mood board complete', pct: 10 },
+          { label: 'First 8 illustrations done', pct: 20 },
+        ]
+      },
+    ];
+    save();
+  }
+
+  render();
+  startNASWatcher(); // background reconnect checker
 }
 
-render();
+init();
 </script>
 </body>
 </html>
